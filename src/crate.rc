@@ -1,0 +1,16 @@
+#[link(name = "dolittle")];
+
+#[comment = "Websocket pushmi-pullyu"];
+#[license = "MIT"];
+#[crate_type = "bin"];
+#[link_args = "-L./lib -lhttp_parser"];
+
+extern mod std;
+pub mod http_parser;
+pub mod dolittle;
+pub mod parser;
+
+fn main() {
+  dolittle::run_main();
+}
+
