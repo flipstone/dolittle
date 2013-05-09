@@ -9,6 +9,10 @@ extern mod std;
 pub mod http_parser;
 pub mod dolittle;
 pub mod parser;
+pub mod headers;
+pub mod websockets {
+  pub mod protocol;
+}
 
 fn main() {
   dolittle::run_main();

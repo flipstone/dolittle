@@ -5,9 +5,9 @@ use http_parser::{http_parser_init, http_parser_execute, HTTP_REQUEST};
 use core::ptr::{null, to_unsafe_ptr};
 use core::libc::{c_int, c_char, size_t, c_void, c_uint};
 use core::cast::{reinterpret_cast};
-use std::treemap::*;
+use headers::*;
 
-struct Parser {
+pub struct Parser {
   parser: ~http_parser::http_parser,
   result: ParseResult,
   offset: uint
@@ -24,13 +24,13 @@ enum Method {
 struct ParseResult {
   url: Option<~str>,
   method: Option<Method>,
-  headers: TreeMap<~str, ~str>,
+  headers: HeaderMap,
   partial_header_field: Option<~str>,
   partial_header_value: Option<~str>
 }
 
 impl Parser {
-  fn parse(&self, input: &str) -> Parser {
+  pub fn parse(&self, input: &str) -> Parser {
     let mut result = self.result.clone();
 
     let s = http_parser::Struct_http_parser_settings {
@@ -64,11 +64,11 @@ impl Parser {
     }
   }
 
-  fn finish(&self) -> Parser {
+  pub fn finish(&self) -> Parser {
     self.parse("")
   }
 
-  fn success(&self) -> bool {
+  pub fn success(&self) -> bool {
     self.errno() == http_parser::HPE_OK
   }
 
@@ -90,23 +90,21 @@ impl Parser {
     (self.parser.http_errno_upgrade & 0x7F) as u32
   }
 
-  fn upgrade(&self) -> bool {
+  pub fn upgrade(&self) -> bool {
     (self.parser.http_errno_upgrade & 0x80) == 0x80
   }
 }
 
 impl ParseResult {
   fn header(&self, name: &str) -> Option<~str> {
-    let our_name = str::from_slice(name);
-    let found = self.headers.find(&our_name);
-    found.map(|s| s.clone())
+    self.headers.get_header(name)
   }
 
   fn new() -> ParseResult {
     ParseResult {
        url: None,
        method: None,
-       headers: TreeMap::new(),
+       headers: HeaderMap::new(),
        partial_header_field: None,
        partial_header_value: None
     }
@@ -125,12 +123,12 @@ impl Clone for ParseResult {
   }
 }
 
-fn copy_headers(headers: &TreeMap<~str,~str>) -> TreeMap<~str,~str> {
-  let mut copied = TreeMap::new();
+fn copy_headers(headers: &HeaderMap) -> HeaderMap {
+  let mut copied = HeaderMap::new();
 
   for headers.each_key() |k| {
     let v = headers.find(k).expect("Invalid key while iterating over headers");
-    copied.insert(k.clone(),v.clone());
+    copied.set_header(*k, *v);
   }
 
   copied
@@ -168,7 +166,7 @@ fn complete_partial_header(result: &mut ParseResult) {
   new_field <-> result.partial_header_field;
   new_value <-> result.partial_header_value;
 
-  result.headers.insert(
+  result.headers.set_header(
     new_field.expect("Got header value without header name!"),
     new_value.expect("Header value lied about is_some()!"));
 }
@@ -246,7 +244,7 @@ fn http_method_const_to_enum(raw_method: c_uint) -> Option<Method> {
   }
 }
 
-fn initial_parser() -> Parser {
+pub fn initial_parser() -> Parser {
   let mut p = http_parser::Struct_http_parser {
     _type_flags: 0,
     state: 0,

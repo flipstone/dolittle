@@ -4,6 +4,9 @@ BINDGEN ?= rust-bindgen
 SRC ?= src
 LIB ?= lib
 
+run: all
+	./bin/dolittle
+
 all: $(LIB)/libhttp_parser.a
 	$(RUSTC) -o bin/dolittle $(SRC)/crate.rc
 
