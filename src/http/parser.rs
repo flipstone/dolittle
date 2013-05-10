@@ -5,20 +5,13 @@ use http_parser::{http_parser_init, http_parser_execute, HTTP_REQUEST};
 use core::ptr::{null, to_unsafe_ptr};
 use core::libc::{c_int, c_char, size_t, c_void, c_uint};
 use core::cast::{reinterpret_cast};
-use headers::*;
+use http::headers::*;
+use http::request::*;
 
 pub struct Parser {
   parser: ~http_parser::http_parser,
   result: ParseResult,
   offset: uint
-}
-
-#[deriving(Eq)]
-enum Method {
-  DELETE, GET, HEAD, POST, PUT, CONNECT, OPTIONS,
-  TRACE, COPY, LOCK, MKCOL, MOVE, PROPFIND, PROPPATCH,
-  SEARCH, UNLOCK, REPORT, MKACTIVITY, CHECKOUT, MERGE,
-  MSEARCH, NOTIFY, SUBSCRIBE, UNSUBSCRIBE, PATCH, PURGE
 }
 
 struct ParseResult {
@@ -92,6 +85,31 @@ impl Parser {
 
   pub fn upgrade(&self) -> bool {
     (self.parser.http_errno_upgrade & 0x80) == 0x80
+  }
+}
+
+impl Request for Parser {
+  fn method(&self) -> Option<Method> {
+    self.result.method
+  }
+
+  fn http_version(&self) -> Option<HttpVersion> {
+    if self.parser.http_major > 0 {
+      Some(HttpVersion(self.parser.http_major,
+                       self.parser.http_minor))
+    } else {
+      None
+    }
+  }
+}
+
+impl Headers for Parser {
+  fn get_header(&self, name: &str) -> Option<~str> {
+    self.result.headers.get_header(name)
+  }
+
+  fn has_header(&self, name: &str) -> bool {
+    self.result.headers.has_header(name)
   }
 }
 
@@ -264,6 +282,19 @@ pub fn initial_parser() -> Parser {
 
   let result = ParseResult::new();
   Parser { parser: ~p, result: result, offset: 0 }
+}
+
+#[test]
+fn http_version_on_initial_parser() {
+  let p = initial_parser();
+  assert!(p.http_version() == None);
+}
+
+#[test]
+fn http_version_after_parsing() {
+  let request = "GET /foo HTTP/1.1\n\n";
+  let r = initial_parser().parse(request);
+  assert!(r.http_version() == Some(HttpVersion(1,1)));
 }
 
 #[test]

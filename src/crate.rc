@@ -8,8 +8,13 @@
 extern mod std;
 pub mod http_parser;
 pub mod dolittle;
-pub mod parser;
-pub mod headers;
+
+pub mod http {
+  pub mod headers;
+  pub mod parser;
+  pub mod request;
+}
+
 pub mod websockets {
   pub mod protocol;
 }

@@ -1,6 +1,6 @@
 use std::*;
 use core;
-use parser::*;
+use http::parser::*;
 use websockets::protocol;
 
 pub fn run_main() {
@@ -44,7 +44,7 @@ fn handle_socket(socket: &net_tcp::TcpSocket) {
 }
 
 fn accept_websocket(parser: &Parser) -> protocol::AcceptResult {
-  protocol::accept_headers(&parser.result.headers)
+  protocol::accept_request(parser)
 }
 
 fn handle_websocket(mut body_chunk: ~str,
