@@ -1,6 +1,7 @@
 use std::*;
 use core;
 use http::parser::*;
+use websockets::framing::parser::*;
 use websockets::protocol;
 
 pub fn run_main() {
@@ -47,16 +48,30 @@ fn accept_websocket(parser: &Parser) -> protocol::AcceptResult {
   protocol::accept_request(parser)
 }
 
-fn handle_websocket(mut body_chunk: ~str,
+fn handle_websocket(body_chunk: ~str,
                     socket: &net_tcp::TcpSocket) {
 
-  loop {
-    println(~"Echoing body: " + body_chunk);
-    socket.write(body_chunk.to_bytes());
+  let mut bytes = body_chunk.to_bytes();
+  let mut frame_parser = FrameParser::new();
 
-    match socket.read(0) {
-      Ok(bytes) => body_chunk = str::from_bytes(bytes),
-      _ => break
+  loop {
+    let result = frame_parser.parse(bytes);
+
+    if result.is_done() {
+      frame_parser = FrameParser::new();
+      bytes = vec::from_slice(bytes.tailn(result.bytes_parsed));
+
+      let frame = result.make_frame_done();
+
+      println("Got Frame");
+      println(sys::log_str(&frame));
+      println("");
+
+    } else {
+      match socket.read(0) {
+        Ok(new_bytes) => bytes = new_bytes,
+        _ => break
+      }
     }
   }
 }

@@ -16,6 +16,10 @@ pub mod http {
 }
 
 pub mod websockets {
+  pub mod framing {
+    pub mod types;
+    pub mod parser;
+  }
   pub mod protocol;
 }
 
