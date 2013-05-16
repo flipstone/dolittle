@@ -140,7 +140,7 @@ impl FrameParser {
 
     if new_buf.bytes_read == bytes_to_read {
       FrameParser {
-        masking_key: Some(new_buf.buf_value as u32),
+        masking_key: Some(MaskingKey(new_buf.buf_value as u32)),
         state: READING_PAYLOAD,
         ..
         self
@@ -291,7 +291,7 @@ fn parse_mask_after_short_payload_length() {
   let p = FrameParser::new()
           .parse_all([0x00,0x80,0x7A,0x4B,0x64,0xF2]);
 
-  assert!(p.masking_key == Some(0x7A4B64F2));
+  assert!(p.masking_key == Some(MaskingKey(0x7A4B64F2)));
 }
 
 #[test]
@@ -301,7 +301,7 @@ fn parse_mask_after_two_byte_payload_length() {
                   0xCC,0xCC,
                   0x7A,0x4B,0x64,0xF2]);
 
-  assert!(p.masking_key == Some(0x7A4B64F2));
+  assert!(p.masking_key == Some(MaskingKey(0x7A4B64F2)));
 }
 
 #[test]
@@ -311,7 +311,7 @@ fn parse_mask_after_eight_byte_payload_length() {
                   0xCC,0xCC,0xCC,0xCC,0xCC,0xCC,0xCC,0xCC,
                   0x7A,0x4B,0x64,0xF2]);
 
-  assert!(p.masking_key == Some(0x7A4B64F2));
+  assert!(p.masking_key == Some(MaskingKey(0x7A4B64F2)));
 }
 
 #[test]

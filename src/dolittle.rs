@@ -64,7 +64,7 @@ fn handle_websocket(body_chunk: ~str,
       let frame = result.make_frame_done();
 
       println("Got Frame");
-      println(sys::log_str(&frame));
+      println(sys::log_str(&frame.unmasked_payload()));
       println("");
 
     } else {

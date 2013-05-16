@@ -6,6 +6,19 @@ pub struct Frame {
   payload_data: PayloadData
 }
 
+impl Frame {
+  pub fn unmasked_payload(&self) -> PayloadData {
+    match self.masking_key {
+      Some(key) => key.unmask(self.payload_data),
+      None => self.payload_data
+    }
+  }
+
+  pub fn is_fin(&self) -> bool {
+    self.byte_one.is_fin()
+  }
+}
+
 #[deriving(Eq,Clone)]
 pub struct ByteOne(u8);
 
@@ -75,7 +88,24 @@ impl ByteTwo {
 }
 
 pub type PayloadLength = u64;
-pub type MaskingKey = u32;
+
+#[deriving(Eq,Clone)]
+pub struct MaskingKey(u32);
+
+impl MaskingKey {
+  fn byte_mask(&self, index: uint) -> u8 {
+    let shift = 8*(3 - (index % 4));
+    ((**self >> shift) & 0xFF) as u8
+  }
+
+  fn unmask(&self, payload: PayloadData) -> PayloadData {
+    let bytes = do vec::mapi(*payload) |idx, byte| {
+      self.byte_mask(idx) ^ *byte
+    };
+
+    PayloadData::new().add_bytes(bytes)
+  }
+}
 
 #[deriving(Eq)]
 pub struct PayloadData(@[u8]);
@@ -83,6 +113,12 @@ pub struct PayloadData(@[u8]);
 impl Clone for PayloadData {
   fn clone(&self) -> PayloadData {
     PayloadData(**self)
+  }
+}
+
+impl Add<PayloadData,PayloadData> for PayloadData {
+  fn add(&self, other: &PayloadData) -> PayloadData {
+    self.add_bytes(**other)
   }
 }
 
@@ -179,3 +215,22 @@ fn frame_byte_2_bits_1234567_is_extended_payload_length() {
   assert!(ByteTwo(127).is_extended_payload_length());
 }
 
+#[test]
+fn masking_key_byte_mask() {
+  let key = MaskingKey(0xFFF00F00);
+
+  assert!(key.byte_mask(0) == 0xFF);
+  assert!(key.byte_mask(1) == 0xF0);
+  assert!(key.byte_mask(2) == 0x0F);
+  assert!(key.byte_mask(3) == 0x00);
+  assert!(key.byte_mask(4) == 0xFF);
+}
+
+#[test]
+fn masking_key_unmask() {
+  let key = MaskingKey(0xFFF00F00);
+  let unmasked = key.unmask(PayloadData(@[0x0F,0xF0,0x0F,0xF0,
+                                          0xF0,0xFF]));
+
+  assert!(unmasked == PayloadData(@[0xF0,0x00,0x00,0xF0,0x0F,0x0F]));
+}
