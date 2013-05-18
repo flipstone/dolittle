@@ -4,15 +4,12 @@ pub struct Frame {
   reserved: bool,
   op_code: OpCode,
   masking_key: Option<MaskingKey>,
-  payload_data: PayloadData
+  payload_data: MaskedPayload,
 }
 
 impl Frame {
   pub fn unmasked_payload(&self) -> PayloadData {
-    match self.masking_key {
-      Some(key) => key.unmask(self.payload_data),
-      None => self.payload_data
-    }
+    self.payload_data.unmask(self.masking_key)
   }
 
   pub fn is_fin(&self) -> bool {
@@ -133,7 +130,7 @@ impl MaskingKey {
     ((**self >> shift) & 0xFF) as u8
   }
 
-  fn unmask(&self, payload: PayloadData) -> PayloadData {
+  fn apply(&self, payload: PayloadData) -> PayloadData {
     let bytes = do vec::mapi(*payload) |idx, byte| {
       self.byte_mask(idx) ^ *byte
     };
@@ -148,6 +145,26 @@ impl MaskingKey {
       self.byte_mask(2),
       self.byte_mask(3),
      ]
+  }
+}
+
+#[deriving(Eq,Clone)]
+pub struct MaskedPayload(PayloadData);
+
+impl MaskedPayload {
+  pub fn new() -> MaskedPayload {
+    MaskedPayload(PayloadData::new())
+  }
+
+  fn unmask(&self, key: Option<MaskingKey>) -> PayloadData {
+    match key {
+      Some(key) => key.apply(**self),
+      None => **self
+    }
+  }
+
+  fn add_bytes(&self, bytes: &[u8]) -> MaskedPayload {
+    MaskedPayload((**self).add_bytes(bytes))
   }
 }
 
@@ -181,6 +198,13 @@ impl PayloadData {
 
   pub fn from_bytes(bytes: &[u8]) -> PayloadData {
     PayloadData::new().add_bytes(bytes)
+  }
+
+  fn mask(&self, key: Option<MaskingKey>) -> MaskedPayload {
+    match key {
+      Some(key) => MaskedPayload(key.apply(*self)),
+      None => MaskedPayload(*self)
+    }
   }
 
   fn to_bytes(&self) -> ~[u8] {
@@ -294,12 +318,12 @@ fn masking_key_byte_mask() {
 }
 
 #[test]
-fn masking_key_unmask() {
+fn masking_key_apply() {
   let key = MaskingKey(0xFFF00F00);
-  let unmasked = key.unmask(PayloadData(@[0x0F,0xF0,0x0F,0xF0,
-                                          0xF0,0xFF]));
+  let masked = key.apply(PayloadData(@[0x0F,0xF0,0x0F,0xF0,
+                                       0xF0,0xFF]));
 
-  assert!(unmasked == PayloadData(@[0xF0,0x00,0x00,0xF0,0x0F,0x0F]));
+  assert!(masked == PayloadData(@[0xF0,0x00,0x00,0xF0,0x0F,0x0F]));
 }
 
 #[test]

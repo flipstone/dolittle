@@ -73,7 +73,7 @@ fn handle_websocket(body_chunk: ~str,
         reserved: false,
         op_code: TEXT,
         masking_key: None,
-        payload_data: PayloadData::from_bytes(@[65,65,65])
+        payload_data: MaskedPayload(PayloadData::from_bytes(@[65,65,65]))
       };
 
       socket.write(send_frame.compose());

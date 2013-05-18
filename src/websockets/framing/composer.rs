@@ -73,7 +73,7 @@ fn compose_base_case_1() {
     reserved: true,
     op_code: TEXT,
     masking_key: None,
-    payload_data: PayloadData(@[0x00,0x12]),
+    payload_data: MaskedPayload(PayloadData(@[0x00,0x12])),
   };
 
   let parser = FrameParser::new();
@@ -89,7 +89,7 @@ fn compose_base_case_2() {
     reserved: false,
     op_code: BINARY,
     masking_key: Some(MaskingKey(0xFFFFFFFF)),
-    payload_data: PayloadData(@[0x00,0x12,0x13]),
+    payload_data: MaskedPayload(PayloadData(@[0x00,0x12,0x13])),
   };
 
   let parser = FrameParser::new();
@@ -114,7 +114,7 @@ fn test_compose_long_payload(length: uint) {
     reserved: false,
     op_code: BINARY,
     masking_key: Some(MaskingKey(0xFFFFFFFF)),
-    payload_data: PayloadData::from_bytes(data),
+    payload_data: MaskedPayload(PayloadData::from_bytes(data)),
   };
 
   let parser = FrameParser::new();

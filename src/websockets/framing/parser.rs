@@ -23,7 +23,7 @@ pub struct FrameParser {
   byte_two: Option<ByteTwo>,
   payload_length: Option<PayloadLength>,
   masking_key: Option<MaskingKey>,
-  payload_data: PayloadData,
+  payload_data: MaskedPayload,
 }
 
 pub struct ParseResult {
@@ -39,7 +39,7 @@ impl FrameParser {
       byte_two: None,
       payload_length: None,
       masking_key: None,
-      payload_data: PayloadData::new(),
+      payload_data: MaskedPayload::new(),
     }
   }
 
@@ -358,7 +358,7 @@ fn parse_payload_data_after_mask() {
                   0x7A,0x4B,0x64,0xF2,
                   0x55,0x44,0x33,0x22,0x11]);
 
-  assert!(p.payload_data == PayloadData(@[0x55,0x44,0x33,0x22,0x11]));
+  assert!(p.payload_data == MaskedPayload(PayloadData(@[0x55,0x44,0x33,0x22,0x11])));
   assert!(p.is_done());
 }
 
@@ -368,7 +368,7 @@ fn parse_payload_data_without_mask() {
           .parse_all([0x00,0x05,
                   0x55,0x44,0x33,0x22,0x11]);
 
-  assert!(p.payload_data == PayloadData(@[0x55,0x44,0x33,0x22,0x11]));
+  assert!(p.payload_data == MaskedPayload(PayloadData(@[0x55,0x44,0x33,0x22,0x11])));
   assert!(p.is_done());
 }
 
@@ -409,6 +409,6 @@ fn parse_payload_in_multiple_chunks() {
 
   assert!(result.bytes_parsed == 2);
   assert!(result.parser.payload_data ==
-          PayloadData(@[1,2,3,4,5,6,7,8,9,10]));
+          MaskedPayload(PayloadData(@[1,2,3,4,5,6,7,8,9,10])));
 }
 
