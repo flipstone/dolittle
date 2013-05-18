@@ -49,15 +49,13 @@ impl FrameParser {
       bytes_parsed: 0,
     };
 
-    do vec::foldl(initial, bytes) |result, byte| {
-      if result.parser.state == DONE {
-        result
-      } else {
-        ParseResult {
-          parser: result.parser.parse_byte(*byte),
-          bytes_parsed: result.bytes_parsed + 1,
-        }
-      }
+    let result = FrameParser::parse_bytewise(initial, bytes);
+
+    if result.parser.state == READING_PAYLOAD {
+      result.parser.consume_payload_bytes(result.bytes_parsed,
+                                          bytes)
+    } else {
+      result
     }
   }
 
@@ -73,13 +71,35 @@ impl FrameParser {
     self.state == DONE
   }
 
+  priv fn parse_bytewise(initial: ParseResult, bytes: &[u8]) -> ParseResult {
+    let mut result = initial;
+
+    for vec::each(bytes) |byte| {
+      if result.parser.state == DONE ||
+         result.parser.state == READING_PAYLOAD {
+        break;
+      } else {
+        result = ParseResult {
+          parser: result.parser.parse_byte(*byte),
+          bytes_parsed: result.bytes_parsed + 1,
+        }
+      }
+    }
+
+    result
+  }
+
   priv fn parse_byte(&self, byte: u8) -> FrameParser {
     match self.state {
+
       INITIAL => self.parse_byte_one(byte),
       AWAITING_BYTE_TWO => self.parse_byte_two(byte),
       READING_PAYLOAD_LENGTH(buf) => self.parse_payload_length_byte(buf, byte),
       READING_MASK(buf) => self.parse_mask_byte(buf, byte),
-      READING_PAYLOAD => self.parse_payload_byte(byte),
+      READING_PAYLOAD => {
+        error!("Attempt to read payload one byte at a time!");
+        self.clone()
+      }
       DONE => self.clone(),
     }
   }
@@ -154,8 +174,23 @@ impl FrameParser {
     }
   }
 
-  priv fn parse_payload_byte(self, byte: u8) -> FrameParser {
-    let payload_data = self.payload_data.add_bytes([byte]);
+  priv fn consume_payload_bytes(self, read_so_far: uint, bytes: &[u8]) -> ParseResult {
+    let len_read_so_far = self.payload_data.length();
+    let total_len = self.payload_length.expect("Got to parsing payload without length!") as uint;
+    let len_left = cmp::max(0,total_len - len_read_so_far);
+
+    let remaining_bytes = bytes.tailn(read_so_far);
+    let len_to_read = cmp::min(len_left, remaining_bytes.len());
+    let bytes_to_read = remaining_bytes.slice(0,len_to_read);
+
+    ParseResult {
+      parser: self.parse_payload_bytes(bytes_to_read),
+      bytes_parsed: read_so_far + bytes_to_read.len(),
+    }
+  }
+
+  priv fn parse_payload_bytes(self, bytes: &[u8]) -> FrameParser {
+    let payload_data = self.payload_data.add_bytes(bytes);
     let max_length = self.payload_length.expect("Got to parsing payload without length!") as uint;
 
     assert!(payload_data.length() <= max_length);
@@ -209,14 +244,16 @@ impl Buffer {
 
 impl ParseResult {
   pub fn try_make_frame(&self) -> Option<Frame> {
-    if self.parser.byte_one.is_none() ||
-       self.parser.byte_one.is_none() {
+    if self.parser.byte_one.is_none() {
       return None;
     }
 
+    let byte_one = self.parser.byte_one.expect("is_none() lied about byte_one!");
+
     Some(Frame {
-      byte_one: self.parser.byte_one.expect("is_none() lied about byte_one!"),
-      byte_two: self.parser.byte_two.expect("is_none() lied about byte_two!"),
+      fin: byte_one.is_fin(),
+      reserved: byte_one.is_reserved(),
+      op_code: byte_one.op_code(),
       masking_key: self.parser.masking_key,
       payload_data: self.parser.payload_data,
     })

@@ -17,8 +17,9 @@ pub mod http {
 
 pub mod websockets {
   pub mod framing {
-    pub mod types;
+    pub mod composer;
     pub mod parser;
+    pub mod types;
   }
   pub mod protocol;
 }

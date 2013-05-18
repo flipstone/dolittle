@@ -2,6 +2,7 @@ use std::*;
 use core;
 use http::parser::*;
 use websockets::framing::parser::*;
+use websockets::framing::types::*;
 use websockets::protocol;
 
 pub fn run_main() {
@@ -61,11 +62,21 @@ fn handle_websocket(body_chunk: ~str,
       frame_parser = FrameParser::new();
       bytes = vec::from_slice(bytes.tailn(result.bytes_parsed));
 
-      let frame = result.make_frame_done();
+      let recv_frame = result.make_frame_done();
 
       println("Got Frame");
-      println(sys::log_str(&frame.unmasked_payload()));
+      println(sys::log_str(&recv_frame.unmasked_payload()));
       println("");
+
+      let send_frame = Frame {
+        fin: true,
+        reserved: false,
+        op_code: TEXT,
+        masking_key: None,
+        payload_data: PayloadData::from_bytes(@[65,65,65])
+      };
+
+      socket.write(send_frame.compose());
 
     } else {
       match socket.read(0) {
