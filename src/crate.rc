@@ -21,6 +21,7 @@ pub mod websockets {
     pub mod parser;
     pub mod types;
   }
+  pub mod messaging;
   pub mod protocol;
 }
 

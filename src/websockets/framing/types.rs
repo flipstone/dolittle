@@ -52,11 +52,11 @@ pub enum OpCode {
   CONTINUATION,
   TEXT,
   BINARY,
-  RESERVED_NON_CONTROL,
+  RESERVED_NON_CONTROL(u8),
   CONNECTION_CLOSE,
   PING,
   PONG,
-  RESERVED_CONTROL,
+  RESERVED_CONTROL(u8),
 }
 
 impl OpCode {
@@ -65,31 +65,29 @@ impl OpCode {
       0x0 => CONTINUATION,
       0x1 => TEXT,
       0x2 => BINARY,
-      0x3..0x7 => RESERVED_NON_CONTROL,
+      0x3..0x7 => RESERVED_NON_CONTROL(byte),
       0x8 => CONNECTION_CLOSE,
       0x9 => PING,
       0xA => PONG,
-      _ => RESERVED_CONTROL
+      _ => RESERVED_CONTROL(byte)
     }
   }
 
-  pub fn to_byte(&self) -> u8{
+  pub fn to_byte(&self) -> u8 {
     match *self {
       CONTINUATION => 0x0,
       TEXT => 0x1,
       BINARY => 0x2,
+      RESERVED_NON_CONTROL(byte) => byte,
       CONNECTION_CLOSE => 0x8,
       PING => 0x9,
       PONG => 0xA,
-      RESERVED_NON_CONTROL => {
-        error!("Attempt to encode RESERVED_NON_CONTROL opcode");
-        0x00
-      }
-      RESERVED_CONTROL => {
-        error!("Attempt to encode RESERVED_CONTROL opcode");
-        0x00
-      }
+      RESERVED_CONTROL(byte) => byte,
     }
+  }
+
+  pub fn is_control(&self) -> bool {
+    (self.to_byte() & 0x8) == 0x8
   }
 }
 
@@ -243,32 +241,53 @@ fn frame_byte_1_bits_5678_is_opcode() {
 
 #[test]
 fn opcode_decoding() {
-  assert!(OpCode::from_byte(0x00) == CONTINUATION);
-  assert!(OpCode::from_byte(0x01) == TEXT);
-  assert!(OpCode::from_byte(0x02) == BINARY);
-  assert!(OpCode::from_byte(0x03) == RESERVED_NON_CONTROL);
-  assert!(OpCode::from_byte(0x04) == RESERVED_NON_CONTROL);
-  assert!(OpCode::from_byte(0x05) == RESERVED_NON_CONTROL);
-  assert!(OpCode::from_byte(0x06) == RESERVED_NON_CONTROL);
-  assert!(OpCode::from_byte(0x07) == RESERVED_NON_CONTROL);
-  assert!(OpCode::from_byte(0x08) == CONNECTION_CLOSE);
-  assert!(OpCode::from_byte(0x09) == PING);
-  assert!(OpCode::from_byte(0x0A) == PONG);
-  assert!(OpCode::from_byte(0x0B) == RESERVED_CONTROL);
-  assert!(OpCode::from_byte(0x0C) == RESERVED_CONTROL);
-  assert!(OpCode::from_byte(0x0D) == RESERVED_CONTROL);
-  assert!(OpCode::from_byte(0x0E) == RESERVED_CONTROL);
-  assert!(OpCode::from_byte(0x0F) == RESERVED_CONTROL);
+  assert!(OpCode::from_byte(0x0) == CONTINUATION);
+  assert!(OpCode::from_byte(0x1) == TEXT);
+  assert!(OpCode::from_byte(0x2) == BINARY);
+  assert!(OpCode::from_byte(0x3) == RESERVED_NON_CONTROL(0x3));
+  assert!(OpCode::from_byte(0x4) == RESERVED_NON_CONTROL(0x4));
+  assert!(OpCode::from_byte(0x5) == RESERVED_NON_CONTROL(0x5));
+  assert!(OpCode::from_byte(0x6) == RESERVED_NON_CONTROL(0x6));
+  assert!(OpCode::from_byte(0x7) == RESERVED_NON_CONTROL(0x7));
+  assert!(OpCode::from_byte(0x8) == CONNECTION_CLOSE);
+  assert!(OpCode::from_byte(0x9) == PING);
+  assert!(OpCode::from_byte(0xA) == PONG);
+  assert!(OpCode::from_byte(0xB) == RESERVED_CONTROL(0xB));
+  assert!(OpCode::from_byte(0xC) == RESERVED_CONTROL(0xC));
+  assert!(OpCode::from_byte(0xD) == RESERVED_CONTROL(0xD));
+  assert!(OpCode::from_byte(0xE) == RESERVED_CONTROL(0xE));
+  assert!(OpCode::from_byte(0xF) == RESERVED_CONTROL(0xF));
+}
+
+
+fn non_control_opcode_bytes() -> ~[u8] {
+  ~[0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7]
+}
+
+fn control_opcode_bytes() -> ~[u8] {
+  ~[0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF]
+}
+
+fn all_opcode_bytes() -> ~[u8] {
+  non_control_opcode_bytes() + control_opcode_bytes()
 }
 
 #[test]
-fn opcode_encoding() {
-  assert!(OpCode::from_byte(CONTINUATION.to_byte()) == CONTINUATION);
-  assert!(OpCode::from_byte(TEXT.to_byte()) == TEXT);
-  assert!(OpCode::from_byte(BINARY.to_byte()) == BINARY);
-  assert!(OpCode::from_byte(CONNECTION_CLOSE.to_byte()) == CONNECTION_CLOSE);
-  assert!(OpCode::from_byte(PING.to_byte()) == PING);
-  assert!(OpCode::from_byte(PONG.to_byte()) == PONG);
+fn opcode_is_control() {
+  for non_control_opcode_bytes().each() |byte| {
+    assert!(!OpCode::from_byte(*byte).is_control());
+  }
+
+  for control_opcode_bytes().each() |byte| {
+    assert!(OpCode::from_byte(*byte).is_control());
+  }
+}
+
+#[test]
+fn opcode_to_byte() {
+  for all_opcode_bytes().each() |byte| {
+    assert!(OpCode::from_byte(*byte).to_byte() == *byte);
+  }
 }
 
 
