@@ -5,7 +5,7 @@ enum Receiver {
 }
 
 #[deriving(Eq)]
-enum Reception {
+pub enum Reception {
   Received(Either<DataMessage,TextMessage>),
   Receiving(Receiver),
   ReceptionError(ReceptionError),
@@ -25,20 +25,20 @@ enum ReceptionError {
 }
 
 #[deriving(Eq)]
-enum FragmentType {
+pub enum FragmentType {
   Text,
   Data,
   Continuation
 }
 
-trait Fragment {
+pub trait Fragment {
   fn fragment_type(&self) -> FragmentType;
   fn fragment_bytes(&self) -> @[u8];
   fn is_fin(&self) -> bool;
 }
 
 impl Receiver {
-  fn new() -> Receiver { Unstarted }
+  pub fn new() -> Receiver { Unstarted }
 
   fn next_fragment<F: Fragment>(&self, fragment: F) -> Reception {
     let (msg_type, message_so_far) =

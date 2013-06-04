@@ -1,8 +1,10 @@
 use std::*;
 use core;
 use http::parser::*;
+use http::parser::Headers;
 use websockets::framing::parser::*;
 use websockets::framing::types::*;
+use websockets::messaging::*;
 use websockets::protocol;
 
 pub fn run_main() {
@@ -32,6 +34,12 @@ fn handle_socket(socket: &net_tcp::TcpSocket) {
     }
   }
 
+  println(~"Protocol requested: " +
+    sys::log_str(&parser.get_header("sec-websocket-protocol")));
+
+  println(~"Extensions requested: " +
+    sys::log_str(&parser.get_header("sec-websocket-extensions")));
+
   chunk = str::from_slice(chunk.slice(parser.offset, chunk.len()));
 
   let acceptance = accept_websocket(&parser);
@@ -51,39 +59,81 @@ fn accept_websocket(parser: &Parser) -> protocol::AcceptResult {
 
 fn handle_websocket(body_chunk: ~str,
                     socket: &net_tcp::TcpSocket) {
+  println(~"Handling: " + sys::log_str(&socket.get_peer_addr()));
 
   let mut bytes = body_chunk.to_bytes();
   let mut frame_parser = FrameParser::new();
+  let mut receiver = Receiver::new();
 
   loop {
+    println(~"Trying to parse " + bytes.len().to_str() + ~" bytes");
     let result = frame_parser.parse(bytes);
+    frame_parser = result.parser;
+    bytes = vec::from_slice(bytes.tailn(result.bytes_parsed));
 
     if result.is_done() {
       frame_parser = FrameParser::new();
-      bytes = vec::from_slice(bytes.tailn(result.bytes_parsed));
 
       let recv_frame = result.make_frame_done();
 
-      println("Got Frame");
-      println(sys::log_str(&recv_frame.unmasked_payload()));
-      println("");
+      if recv_frame.op_code.is_control() {
+        handle_control_frame(recv_frame, socket);
+      } else {
+        receiver = handle_data_frame(recv_frame, receiver);
+      }
+    }
 
-      let send_frame = Frame {
-        fin: true,
-        reserved: false,
-        op_code: TEXT,
-        masking_key: None,
-        payload_data: MaskedPayload(PayloadData::from_bytes(@[65,65,65]))
-      };
-
-      socket.write(send_frame.compose());
-
-    } else {
+    if bytes.len() <= 0 {
       match socket.read(0) {
         Ok(new_bytes) => bytes = new_bytes,
         _ => break
       }
     }
+  }
+}
+
+fn handle_control_frame(recv_frame: Frame,
+                        socket: &net_tcp::TcpSocket) {
+  println("Got Control Frame");
+  println(sys::log_str(&recv_frame.op_code));
+  println("");
+
+  match recv_frame.op_code {
+    PING => {
+      let pong = Frame {
+        fin: true,
+        reserved: false,
+        op_code: PONG,
+        masking_key: None,
+        payload_data: PayloadData::new().mask(None),
+      };
+
+      socket.write(pong.compose());
+    },
+    _ => {}
+  }
+}
+
+fn handle_data_frame(recv_frame: Frame, receiver: Receiver) -> Receiver {
+  let data = recv_frame.unmasked_payload();
+
+  match receiver.next_fragment(recv_frame) {
+    Receiving(r_prime) => {
+      println("Got Message Fragment");
+      r_prime
+    },
+
+    Received(msg) => {
+      println("Got Message");
+      Receiver::new()
+    },
+
+    ReceptionError(error) => {
+      println("Got Reception Error");
+      println(sys::log_str(&error));
+      println("");
+      Receiver::new()
+    },
   }
 }
 

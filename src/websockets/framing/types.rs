@@ -1,3 +1,5 @@
+use websockets::messaging::{Fragment,FragmentType,Text,Data,Continuation};
+
 #[deriving(Eq,Clone)]
 pub struct Frame {
   fin: bool,
@@ -18,6 +20,29 @@ impl Frame {
 
   pub fn is_reserved(&self) -> bool {
     self.reserved
+  }
+}
+
+impl Fragment for Frame {
+  fn fragment_type(&self) -> FragmentType {
+    match self.op_code {
+      CONTINUATION => Continuation,
+      TEXT => Text,
+      BINARY => Data,
+      _ => {
+        error!(~"Invalid opcode for fragmenting: " +
+               self.op_code.to_byte().to_str() + ~"!");
+        Continuation
+      }
+    }
+  }
+
+  fn fragment_bytes(&self) -> @[u8] {
+    self.unmasked_payload().to_managed_bytes()
+  }
+
+  fn is_fin(&self) -> bool {
+    self.is_fin()
   }
 }
 
@@ -43,7 +68,7 @@ impl ByteOne {
   }
 
   fn op_code(&self) -> OpCode {
-    OpCode::from_byte(**self)
+    OpCode::from_byte(**self & OP_CODE_MASK)
   }
 }
 
@@ -61,7 +86,7 @@ pub enum OpCode {
 
 impl OpCode {
   pub fn from_byte(byte: u8) -> OpCode {
-    match byte & OP_CODE_MASK {
+    match byte {
       0x0 => CONTINUATION,
       0x1 => TEXT,
       0x2 => BINARY,
@@ -208,6 +233,10 @@ impl PayloadData {
   fn to_bytes(&self) -> ~[u8] {
     (**self).to_owned()
   }
+
+  fn to_managed_bytes(&self) -> @[u8] {
+    **self
+  }
 }
 
 #[deriving(Eq)]
@@ -237,6 +266,7 @@ fn frame_byte_1_bits_123_is_reserved() {
 fn frame_byte_1_bits_5678_is_opcode() {
   assert!(ByteOne(0x00).op_code() == CONTINUATION);
   assert!(ByteOne(0xF0).op_code() == CONTINUATION);
+  assert!(ByteOne(0xFF).op_code() == RESERVED_CONTROL(0xF));
 }
 
 #[test]
