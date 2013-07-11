@@ -13,7 +13,7 @@ pub fn run_main() {
 
 fn handle_socket(socket: &net_tcp::TcpSocket) {
   let mut parser = initial_parser();
-  let mut chunk = ~"";
+  let mut chunk;
 
   loop {
     let result = socket.read(0);

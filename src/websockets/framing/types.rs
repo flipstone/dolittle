@@ -29,11 +29,8 @@ impl Fragment for Frame {
       CONTINUATION => Continuation,
       TEXT => Text,
       BINARY => Data,
-      _ => {
-        error!(~"Invalid opcode for fragmenting: " +
-               self.op_code.to_byte().to_str() + ~"!");
-        Continuation
-      }
+      _ => fail!(~"Invalid opcode for fragmenting: " +
+                 self.op_code.to_byte().to_str() + ~"!")
     }
   }
 

@@ -96,10 +96,7 @@ impl FrameParser {
       AWAITING_BYTE_TWO => self.parse_byte_two(byte),
       READING_PAYLOAD_LENGTH(buf) => self.parse_payload_length_byte(buf, byte),
       READING_MASK(buf) => self.parse_mask_byte(buf, byte),
-      READING_PAYLOAD => {
-        error!("Attempt to read payload one byte at a time!");
-        self.clone()
-      }
+      READING_PAYLOAD => fail!(~"Attempt to read payload one byte at a time!"),
       DONE => self.clone(),
     }
   }

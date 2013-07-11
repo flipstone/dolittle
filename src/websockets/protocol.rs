@@ -13,7 +13,7 @@ fn accept_key(key: &str) -> ~str {
 }
 
 #[deriving(Eq)]
-struct WebsocketAcceptance {
+pub struct WebsocketAcceptance {
   key_accept: ~str
 }
 

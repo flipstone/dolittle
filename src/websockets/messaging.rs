@@ -139,9 +139,6 @@ impl Fragment for (FragmentType,bool,@[u8]) {
 fn assert_receiving(reception: Reception) -> Receiver {
   match reception {
     Receiving(r) => { r },
-    _ => {
-      error!("Receiver wasn't Receiving");
-      Unstarted
-    }
+    _ => fail!(~"Receiver wasn't Receiving")
   }
 }
