@@ -12,7 +12,7 @@ all: $(LIB)/libhttp_parser.a
 
 check:
 	$(RUSTC) -o bin/dolittle-test --test $(SRC)/crate.rc
-		bin/dolittle-test
+		bin/dolittle-test $(test)
 
 clean:
 	rm -rf bin/*
